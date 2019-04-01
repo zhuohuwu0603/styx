@@ -24,8 +24,10 @@ import static com.spotify.styx.util.ConfigUtil.get;
 import static com.spotify.styx.util.Connections.createBigTableConnection;
 import static com.spotify.styx.util.Connections.createDatastore;
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.TimeUnit.SECONDS;
 
 import com.google.cloud.datastore.Datastore;
+import com.google.common.base.Suppliers;
 import com.google.common.collect.Streams;
 import com.google.common.io.Closer;
 import com.spotify.apollo.AppInit;
@@ -54,7 +56,6 @@ import com.spotify.styx.monitoring.Stats;
 import com.spotify.styx.monitoring.StatsFactory;
 import com.spotify.styx.storage.AggregateStorage;
 import com.spotify.styx.storage.Storage;
-import com.spotify.styx.util.CachedSupplier;
 import com.spotify.styx.util.DockerImageValidator;
 import com.spotify.styx.util.StorageFactory;
 import com.spotify.styx.util.Time;
@@ -68,6 +69,7 @@ import java.util.function.BiConsumer;
 import java.util.function.BiFunction;
 import java.util.function.Supplier;
 import java.util.stream.Stream;
+import javaslang.control.Try;
 import okio.ByteString;
 import org.apache.hadoop.hbase.client.Connection;
 
@@ -211,7 +213,7 @@ public class StyxApi implements AppInit {
         schedulerServiceBaseUrl, environment.client());
 
     final Supplier<StyxConfig> configSupplier =
-        new CachedSupplier<>(storage::config, Instant::now);
+        Suppliers.memoizeWithExpiration(Try.of(storage::config)::get, 30, SECONDS);
     final Supplier<List<String>> clientBlacklistSupplier =
         () -> configSupplier.get().clientBlacklist();
 

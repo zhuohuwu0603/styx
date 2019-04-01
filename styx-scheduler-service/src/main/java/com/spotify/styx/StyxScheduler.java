@@ -29,6 +29,7 @@ import static com.spotify.styx.util.Connections.createBigTableConnection;
 import static com.spotify.styx.util.Connections.createDatastore;
 import static com.spotify.styx.util.GuardedRunnable.runGuarded;
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.TimeUnit.SECONDS;
 
 import com.google.api.client.googleapis.auth.oauth2.GoogleCredential;
 import com.google.api.client.googleapis.javanet.GoogleNetHttpTransport;
@@ -42,6 +43,7 @@ import com.google.api.services.iam.v1.Iam;
 import com.google.api.services.iam.v1.IamScopes;
 import com.google.cloud.datastore.Datastore;
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Suppliers;
 import com.google.common.base.Throwables;
 import com.google.common.io.Closer;
 import com.google.common.util.concurrent.RateLimiter;
@@ -87,7 +89,6 @@ import com.spotify.styx.state.handlers.TransitionLogger;
 import com.spotify.styx.storage.AggregateStorage;
 import com.spotify.styx.storage.InMemStorage;
 import com.spotify.styx.storage.Storage;
-import com.spotify.styx.util.CachedSupplier;
 import com.spotify.styx.util.CounterSnapshotFactory;
 import com.spotify.styx.util.Debug;
 import com.spotify.styx.util.DockerImageValidator;
@@ -128,6 +129,7 @@ import java.util.function.BiConsumer;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.function.Supplier;
+import javaslang.control.Try;
 import okhttp3.OkHttpClient;
 import okhttp3.Protocol;
 import org.apache.hadoop.hbase.client.Connection;
@@ -372,7 +374,8 @@ public class StyxScheduler implements AppInit {
     final Config staleStateTtlConfig = config.getConfig(STYX_STALE_STATE_TTL_CONFIG);
     final TimeoutConfig timeoutConfig = TimeoutConfig.createFromConfig(staleStateTtlConfig);
 
-    final Supplier<Map<WorkflowId, Workflow>> workflowCache = new CachedSupplier<>(storage::workflows, time);
+    final Supplier<Map<WorkflowId, Workflow>> workflowCache =
+        Suppliers.memoizeWithExpiration(Try.of(storage::workflows)::get, 30, SECONDS);
 
     // TODO: hack to get around circular reference. Change OutputHandler.transitionInto() to
     //       take StateManager as argument instead?
@@ -386,7 +389,7 @@ public class StyxScheduler implements AppInit {
         shardedCounter));
     final StateManager stateManager = TracingProxy.instrument(StateManager.class, queuedStateManager);
 
-    final Supplier<StyxConfig> styxConfig = new CachedSupplier<>(storage::config, time);
+    final Supplier<StyxConfig> styxConfig = Suppliers.memoizeWithExpiration(Try.of(storage::config)::get, 30, SECONDS);
     final Supplier<String> dockerId = () -> styxConfig.get().globalDockerRunnerId();
     final Debug debug = () -> styxConfig.get().debugEnabled();
     final DockerRunner routingDockerRunner = DockerRunner.routing(
@@ -560,9 +563,9 @@ public class StyxScheduler implements AppInit {
 
     // Cache expensive methods
     final Supplier<Set<WorkflowId>> enabledWorkflowCache =
-        new CachedSupplier<>(storage::enabled, Instant::now);
-    final CachedSupplier<Map<WorkflowInstance, RunState>> activeStatesCache =
-        new CachedSupplier<>(stateManager::getActiveStates, time);
+        Suppliers.memoizeWithExpiration(Try.of(storage::enabled)::get, 30, SECONDS);
+    final Supplier<Map<WorkflowInstance, RunState>> activeStatesCache =
+        Suppliers.memoizeWithExpiration(stateManager::getActiveStates, 30, SECONDS);
 
     stats.registerQueuedEventsMetric(stateManager::queuedEvents);
 

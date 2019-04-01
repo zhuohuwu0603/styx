@@ -69,8 +69,8 @@ public class DockerRunnerHandler implements OutputHandler {
         }
 
         try {
-          LOG.info("running:{} image:{} args:{} termination_logging:{}", state.workflowInstance(),
-              runSpec.imageName(), runSpec.args(), runSpec.terminationLogging());
+          LOG.info("running:{} image:{} args:{} termination_logging:{} execution_id:{}", state.workflowInstance(),
+              runSpec.imageName(), runSpec.args(), runSpec.terminationLogging(), runSpec.executionId());
           dockerRunner.start(state.workflowInstance(), runSpec);
         } catch (Throwable e) {
           try {

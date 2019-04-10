@@ -36,8 +36,14 @@ public class TransactionException extends StorageException {
 
   public boolean isConflict() {
     if (getCause() != null && getCause() instanceof DatastoreException) {
-      DatastoreException datastoreException = (DatastoreException) getCause();
-      return datastoreException.getCode() == 10;
+      var dex = (DatastoreException) getCause();
+      // TODO: transaction closed does not technically mean that we got a transaction conflict,
+      //  but the datastore client has a bug where upon encountering a 10 ABORTED error for lookup
+      //  operations performed in a transaction it incorrectly immediately retries the lookup operation
+      //  without restarting the transaction. The datastore service then replies with 3 INVALID_ARGUMENT
+      //  "transaction closed" and the datastore client then propagates this error message.
+      // NOTE: This could mis-classify other errors/bugs as conflicts as well.
+      return dex.getCode() == 10 || messageStartsWith("transaction closed");
     } else {
       return false;
     }

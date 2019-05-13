@@ -1,0 +1,15 @@
+<configuration>
+  <root level="debug">
+    <appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">
+      <name>STDOUT</name>
+      <encoder>
+        <pattern>%d{HH:mm:ss.SSS} [%thread] [%X{request-id}] %-5level %logger{36} - %msg%n</pattern>
+      </encoder>
+    </appender>
+  </root>
+
+  <logger name="org.eclipse.jetty" level="INFO" />
+  <logger name="com.google" level="INFO" />
+  <logger name="io.grpc" level="INFO" />
+  <logger name="io.netty" level="INFO" />
+</configuration>

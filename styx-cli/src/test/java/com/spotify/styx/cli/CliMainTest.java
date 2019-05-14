@@ -54,6 +54,7 @@ import com.spotify.styx.model.Workflow;
 import com.spotify.styx.model.WorkflowConfiguration;
 import com.spotify.styx.model.WorkflowId;
 import com.spotify.styx.model.WorkflowState;
+import com.spotify.styx.model.data.EventInfo;
 import com.spotify.styx.serialization.Json;
 import com.spotify.styx.util.WorkflowValidator;
 import java.io.File;
@@ -973,6 +974,24 @@ public class CliMainTest {
     } catch (CliExitException e) {
       assertThat(e.status(), is(ExitStatus.ArgumentError));
     }
+  }
+
+  @Test
+  public void testEvents() {
+    var component = "foo";
+    var workflow = "bar";
+    var parameter = "2019-05-14";
+
+    var events = List.of(
+        EventInfo.create(17L, "started", "started info"),
+        EventInfo.create(4711L, "success", "success info"));
+
+    when(client.eventsForWorkflowInstance(component, workflow, parameter))
+        .thenReturn(CompletableFuture.completedStage(events));
+
+    CliMain.run(cliContext, "e", component, workflow, parameter, "--json");
+
+    verify(cliOutput).printEvents(events);
   }
 
   private Path fileFromResource(String name) throws IOException {

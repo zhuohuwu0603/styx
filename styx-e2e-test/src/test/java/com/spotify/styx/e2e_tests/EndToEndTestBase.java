@@ -102,7 +102,7 @@ public class EndToEndTestBase {
   private Config schedulerConfig;
 
   @Before
-  public void setUpStyx() throws Exception {
+  public void setUp() throws Exception {
     // Setup namespace
     log.info("Styx test namespace: {}", namespace);
     System.setProperty("styx.test.namespace", namespace);
@@ -150,36 +150,40 @@ public class EndToEndTestBase {
   }
 
   @After
-  public void tearDownStyx() throws Exception {
-    styxApiInstance.thenAccept(instance -> instance.getSignaller().signalShutdown());
-    styxSchedulerInstance.thenAccept(instance -> instance.getSignaller().signalShutdown());
-    if (styxApiThread != null) {
-      Try.run(() -> styxApiThread.get(30, SECONDS));
-      styxApiThread.cancel(true);
+  public void tearDown() throws Exception {
+    try {
+      styxApiInstance.thenAccept(instance -> instance.getSignaller().signalShutdown());
+      styxSchedulerInstance.thenAccept(instance -> instance.getSignaller().signalShutdown());
+      if (styxApiThread != null) {
+        Try.run(() -> styxApiThread.get(30, SECONDS));
+        styxApiThread.cancel(true);
+      }
+      if (styxSchedulerThread != null) {
+        Try.run(() -> styxSchedulerThread.get(30, SECONDS));
+        styxSchedulerThread.cancel(true);
+      }
+      executor.shutdownNow();
+      executor.awaitTermination(30, SECONDS);
+    } catch (Throwable t) {
+      log.error("styx teardown failed", t);
     }
-    if (styxSchedulerThread != null) {
-      Try.run(() -> styxSchedulerThread.get(30, SECONDS));
-      styxSchedulerThread.cancel(true);
-    }
-    executor.shutdownNow();
-    executor.awaitTermination(30, SECONDS);
-  }
 
-  @After
-  public void datastoreCleanup() {
-    if (datastore == null) {
-      return;
+    try {
+      if (datastore != null) {
+        Try.run(() -> deleteDatastoreNamespace(datastore, namespace));
+      }
+    } catch (Throwable t) {
+      log.error("datastore teardown failed", t);
     }
-    deleteDatastoreNamespace(datastore, namespace);
-  }
 
-  @After
-  public void k8sCleanup() {
-    if (k8s == null) {
-      return;
+    try {
+      if (k8s != null) {
+        log.info("Deleting k8s namespace: {}", namespace);
+        k8s.namespaces().withName(namespace).delete();
+      }
+    } catch (Throwable t) {
+      log.error("k8s teardown failed", t);
     }
-    log.info("Deleting k8s namespace: {}", namespace);
-    k8s.namespaces().withName(namespace).delete();
   }
 
   <T> T cliJson(Class<T> outputClass, String... args) throws IOException, InterruptedException, CliException {

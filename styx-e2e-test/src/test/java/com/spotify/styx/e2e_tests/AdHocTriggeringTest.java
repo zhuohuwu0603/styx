@@ -38,6 +38,8 @@ public class AdHocTriggeringTest extends EndToEndTestBase {
   @Test
   public void testAdHocTriggering() throws Exception {
 
+    // TODO: configure a workflow service account
+
     // Generate workflow configuration
     var workflowJson = Json.OBJECT_MAPPER.writeValueAsString(Map.of(
         "id", workflowId1,

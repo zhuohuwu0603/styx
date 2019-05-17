@@ -43,6 +43,8 @@ public class BackfillTest extends EndToEndTestBase {
   @Test
   public void testBackfill() throws Exception {
 
+    // TODO: configure a workflow service account
+
     // Generate workflow configuration
     var workflowJson = Json.OBJECT_MAPPER.writeValueAsString(Map.of(
         "id", workflowId1,

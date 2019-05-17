@@ -46,6 +46,7 @@ import io.fabric8.kubernetes.client.NamespacedKubernetesClient;
 import io.norberg.automatter.AutoMatter;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
@@ -201,7 +202,12 @@ public class EndToEndTestBase {
     jsonArgs.add("--json");
     jsonArgs.addAll(args);
     var output = cli(jsonArgs);
-    return Json.OBJECT_MAPPER.readValue(output, outputType);
+    try {
+      return Json.OBJECT_MAPPER.readValue(output, outputType);
+    } catch (IOException e) {
+      log.error("Failed to json deserialize cli output: {}", new String(output, StandardCharsets.UTF_8), e);
+      throw e;
+    }
   }
 
   byte[] cli(List<String> args) throws IOException, InterruptedException, CliException {

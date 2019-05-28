@@ -646,8 +646,8 @@ public class StyxScheduler implements AppInit {
     }
   }
 
-  public static NamespacedKubernetesClient getKubernetesClient(Config rootConfig, String id,
-      Container gke, KubernetesClientFactory clientFactory) {
+  static NamespacedKubernetesClient getKubernetesClient(Config rootConfig, String id,
+                                                        Container gke, KubernetesClientFactory clientFactory) {
     try {
       final Config config = rootConfig
           .getConfig(GKE_CLUSTER_PATH)

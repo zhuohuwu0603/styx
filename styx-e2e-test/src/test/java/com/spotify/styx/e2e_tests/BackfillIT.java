@@ -21,30 +21,34 @@
 package com.spotify.styx.e2e_tests;
 
 import static java.util.concurrent.TimeUnit.MINUTES;
+import static java.util.stream.Collectors.toList;
 import static org.awaitility.Awaitility.await;
 import static org.hamcrest.Matchers.is;
 import static org.junit.Assert.assertThat;
 
 import com.fasterxml.jackson.core.type.TypeReference;
+import com.spotify.styx.api.BackfillPayload;
+import com.spotify.styx.model.Backfill;
 import com.spotify.styx.model.data.EventInfo;
 import com.spotify.styx.serialization.Json;
 import java.nio.file.Files;
-import java.time.temporal.ChronoUnit;
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Stream;
 import org.junit.Test;
 
-public class ScheduledTriggeringTest extends EndToEndTestBase {
+public class BackfillIT extends EndToEndTestBase {
 
   @Test
-  public void testScheduledTriggering() throws Exception {
+  public void testBackfill() throws Exception {
 
     // TODO: configure a workflow service account
 
     // Generate workflow configuration
     var workflowJson = Json.OBJECT_MAPPER.writeValueAsString(Map.of(
         "id", workflowId1,
-        "schedule", "* * * * *",
+        "schedule", "daily",
         "docker_image", "busybox",
         "docker_args", List.of("echo", "{}")));
     var workflowJsonFile = temporaryFolder.newFile().toPath();
@@ -56,21 +60,30 @@ public class ScheduledTriggeringTest extends EndToEndTestBase {
         "workflow", "create", "-f", workflowJsonFile.toString(), component1);
     assertThat(workflowCreateResult, is("Workflow " + workflowId1 + " in component " + component1 + " created."));
 
-    // Get expected scheduled instance
-    var workflowWithState = cliJson(WorkflowWithState.class, "workflow", "show", component1, workflowId1);
-    var nextNaturalTrigger = workflowWithState.state().nextNaturalTrigger().get();
-    var instance = nextNaturalTrigger.truncatedTo(ChronoUnit.SECONDS).toString();
-    log.info("Expected instance: {}", instance);
+    var start = LocalDate.parse("2019-05-01");
+    var end = LocalDate.parse("2019-05-04");
+    var expectedInstances = Stream.iterate(start, i -> i.isBefore(end), i -> i.plusDays(1))
+        .collect(toList());
 
-    // Enable workflow scheduled execution
-    log.info("Enabling workflow: {} {}", component1, workflowId1);
-    var enableResult = cliJson(String.class, "workflow", "enable", component1, workflowId1);
-    assertThat(enableResult, is("Workflow " + workflowId1 + " in component " + component1 + " enabled."));
+    // Create backfill
+    var backfill = cliJson(Backfill.class,
+        "backfill", "create", component1, workflowId1, start.toString(), end.toString(), "2");
 
-    // Wait for expected instance to successfully complete
+    // Wait for backfill to successfully complete
     await().atMost(5, MINUTES).until(() -> {
-      var events = cliJson(new TypeReference<List<EventInfo>>() {}, "e", component1, workflowId1, instance);
-      return events.stream().anyMatch(event -> event.name().equals("success"));
+      var backfillPayload = cliJson(BackfillPayload.class, "backfill", "show", backfill.id());
+      if (!backfillPayload.backfill().allTriggered()) {
+        return false;
+      }
+      for (final LocalDate instance : expectedInstances) {
+        var events = cliJson(new TypeReference<List<EventInfo>>() {}, "e", component1, workflowId1,
+            instance.toString());
+        var success = events.stream().anyMatch(event -> event.name().equals("success"));
+        if (!success) {
+          return false;
+        }
+      }
+      return true;
     });
   }
 }

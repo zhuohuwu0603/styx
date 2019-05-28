@@ -29,39 +29,45 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.spotify.styx.model.data.EventInfo;
 import com.spotify.styx.serialization.Json;
 import java.nio.file.Files;
+import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.Map;
 import org.junit.Test;
 
-public class AdHocTriggeringTest extends EndToEndTestBase {
+public class ScheduledTriggeringIT extends EndToEndTestBase {
 
   @Test
-  public void testAdHocTriggering() throws Exception {
+  public void testScheduledTriggering() throws Exception {
 
     // TODO: configure a workflow service account
 
     // Generate workflow configuration
     var workflowJson = Json.OBJECT_MAPPER.writeValueAsString(Map.of(
         "id", workflowId1,
-        "schedule", "daily",
+        "schedule", "* * * * *",
         "docker_image", "busybox",
-        "docker_args", List.of("echo", "hello world")));
+        "docker_args", List.of("echo", "{}")));
     var workflowJsonFile = temporaryFolder.newFile().toPath();
     Files.writeString(workflowJsonFile, workflowJson);
 
     // Create workflow
-    log.info("Creating workflow: {}", workflowId1);
+    log.info("Creating workflow: {} {}", component1, workflowId1);
     var workflowCreateResult = cliJson(String.class,
         "workflow", "create", "-f", workflowJsonFile.toString(), component1);
     assertThat(workflowCreateResult, is("Workflow " + workflowId1 + " in component " + component1 + " created."));
 
-    // Trigger workflow instance
-    log.info("Triggering workflow");
-    var instance = "2019-05-13";
-    var triggerResult = cliJson(String.class, "t", component1, workflowId1, instance);
-    assertThat(triggerResult, is("Triggered! Use `styx ls -c " + component1 + "` to check active workflow instances."));
+    // Get expected scheduled instance
+    var workflowWithState = cliJson(WorkflowWithState.class, "workflow", "show", component1, workflowId1);
+    var nextNaturalTrigger = workflowWithState.state().nextNaturalTrigger().get();
+    var instance = nextNaturalTrigger.truncatedTo(ChronoUnit.SECONDS).toString();
+    log.info("Expected instance: {}", instance);
 
-    // Wait for instance to successfully complete
+    // Enable workflow scheduled execution
+    log.info("Enabling workflow: {} {}", component1, workflowId1);
+    var enableResult = cliJson(String.class, "workflow", "enable", component1, workflowId1);
+    assertThat(enableResult, is("Workflow " + workflowId1 + " in component " + component1 + " enabled."));
+
+    // Wait for expected instance to successfully complete
     await().atMost(5, MINUTES).until(() -> {
       var events = cliJson(new TypeReference<List<EventInfo>>() {}, "e", component1, workflowId1, instance);
       return events.stream().anyMatch(event -> event.name().equals("success"));

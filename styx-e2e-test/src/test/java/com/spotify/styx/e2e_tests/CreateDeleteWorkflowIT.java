@@ -34,7 +34,7 @@ import java.util.List;
 import java.util.Optional;
 import org.junit.Test;
 
-public class CreateDeleteWorkflowTest extends EndToEndTestBase {
+public class CreateDeleteWorkflowIT extends EndToEndTestBase {
 
   @Test
   public void testCreateDeleteWorkflow() throws Exception {

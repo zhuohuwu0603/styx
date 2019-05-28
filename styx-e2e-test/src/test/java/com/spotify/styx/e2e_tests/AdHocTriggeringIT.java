@@ -21,27 +21,22 @@
 package com.spotify.styx.e2e_tests;
 
 import static java.util.concurrent.TimeUnit.MINUTES;
-import static java.util.stream.Collectors.toList;
 import static org.awaitility.Awaitility.await;
 import static org.hamcrest.Matchers.is;
 import static org.junit.Assert.assertThat;
 
 import com.fasterxml.jackson.core.type.TypeReference;
-import com.spotify.styx.api.BackfillPayload;
-import com.spotify.styx.model.Backfill;
 import com.spotify.styx.model.data.EventInfo;
 import com.spotify.styx.serialization.Json;
 import java.nio.file.Files;
-import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
-import java.util.stream.Stream;
 import org.junit.Test;
 
-public class BackfillTest extends EndToEndTestBase {
+public class AdHocTriggeringIT extends EndToEndTestBase {
 
   @Test
-  public void testBackfill() throws Exception {
+  public void testAdHocTriggering() throws Exception {
 
     // TODO: configure a workflow service account
 
@@ -50,40 +45,26 @@ public class BackfillTest extends EndToEndTestBase {
         "id", workflowId1,
         "schedule", "daily",
         "docker_image", "busybox",
-        "docker_args", List.of("echo", "{}")));
+        "docker_args", List.of("echo", "hello world")));
     var workflowJsonFile = temporaryFolder.newFile().toPath();
     Files.writeString(workflowJsonFile, workflowJson);
 
     // Create workflow
-    log.info("Creating workflow: {} {}", component1, workflowId1);
+    log.info("Creating workflow: {}", workflowId1);
     var workflowCreateResult = cliJson(String.class,
         "workflow", "create", "-f", workflowJsonFile.toString(), component1);
     assertThat(workflowCreateResult, is("Workflow " + workflowId1 + " in component " + component1 + " created."));
 
-    var start = LocalDate.parse("2019-05-01");
-    var end = LocalDate.parse("2019-05-04");
-    var expectedInstances = Stream.iterate(start, i -> i.isBefore(end), i -> i.plusDays(1))
-        .collect(toList());
+    // Trigger workflow instance
+    log.info("Triggering workflow");
+    var instance = "2019-05-13";
+    var triggerResult = cliJson(String.class, "t", component1, workflowId1, instance);
+    assertThat(triggerResult, is("Triggered! Use `styx ls -c " + component1 + "` to check active workflow instances."));
 
-    // Create backfill
-    var backfill = cliJson(Backfill.class,
-        "backfill", "create", component1, workflowId1, start.toString(), end.toString(), "2");
-
-    // Wait for backfill to successfully complete
+    // Wait for instance to successfully complete
     await().atMost(5, MINUTES).until(() -> {
-      var backfillPayload = cliJson(BackfillPayload.class, "backfill", "show", backfill.id());
-      if (!backfillPayload.backfill().allTriggered()) {
-        return false;
-      }
-      for (final LocalDate instance : expectedInstances) {
-        var events = cliJson(new TypeReference<List<EventInfo>>() {}, "e", component1, workflowId1,
-            instance.toString());
-        var success = events.stream().anyMatch(event -> event.name().equals("success"));
-        if (!success) {
-          return false;
-        }
-      }
-      return true;
+      var events = cliJson(new TypeReference<List<EventInfo>>() {}, "e", component1, workflowId1, instance);
+      return events.stream().anyMatch(event -> event.name().equals("success"));
     });
   }
 }

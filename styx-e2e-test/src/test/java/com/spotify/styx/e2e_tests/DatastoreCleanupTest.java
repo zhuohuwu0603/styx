@@ -21,14 +21,12 @@
 package com.spotify.styx.e2e_tests;
 
 import static com.spotify.styx.e2e_tests.DatastoreUtil.deleteDatastoreNamespace;
-import static com.spotify.styx.e2e_tests.EndToEndTestBase.TIMESTAMP_FORMATTER;
-import static com.spotify.styx.e2e_tests.TestNamespaces.TEST_NAMESPACE_PATTERN;
+import static com.spotify.styx.e2e_tests.TestNamespaces.isExpiredTestNamespace;
 
 import com.google.cloud.datastore.Datastore;
 import com.google.cloud.datastore.DatastoreOptions;
 import com.google.cloud.datastore.KeyQuery;
 import java.time.Instant;
-import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import org.junit.Test;
 import org.slf4j.Logger;
@@ -42,6 +40,8 @@ public class DatastoreCleanupTest {
 
   private static final Logger log = LoggerFactory.getLogger(DatastoreCleanupTest.class);
 
+  private static final Instant NOW = Instant.now();
+
   @Test
   public void deleteOldDatastoreTestNamespaces() {
     final Datastore datastore = DatastoreOptions.newBuilder()
@@ -49,31 +49,21 @@ public class DatastoreCleanupTest {
         .build()
         .getService();
 
-    var namespaces = new ArrayList<String>();
+    var expiredNamespaces = new ArrayList<String>();
     datastore.run(KeyQuery.newKeyQueryBuilder().setKind("__namespace__").build())
         .forEachRemaining(k -> {
-          if (k.hasName()) {
-            namespaces.add(k.getName());
+          if (k.hasName() && isExpiredTestNamespace(k.getName(), NOW)) {
+            expiredNamespaces.add(k.getName());
           }
         });
-    for (var namespace : namespaces) {
-      var matcher = TEST_NAMESPACE_PATTERN.matcher(namespace);
-      if (!matcher.matches()) {
-        continue;
-      }
-      final Instant timestamp;
-      var timestampString = matcher.group("timestamp");
+
+    for (var namespace : expiredNamespaces) {
+      log.info("Deleting expired datastore test namespace: {}", namespace);
       try {
-        timestamp = TIMESTAMP_FORMATTER.parse(timestampString, Instant::from);
+        deleteDatastoreNamespace(datastore, namespace);
       } catch (Exception e) {
-        log.warn("Failed to parse namespace timestamp: " + timestampString, e);
-        continue;
+        log.error("Failed to delete expired datastore test namespace: {}", namespace);
       }
-      if (timestamp.isAfter(Instant.now().minus(1, ChronoUnit.DAYS))) {
-        continue;
-      }
-      log.info("Deleting old datastore test namespace: {}", namespace);
-      deleteDatastoreNamespace(datastore, namespace);
     }
   }
 

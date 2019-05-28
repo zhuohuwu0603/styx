@@ -26,6 +26,8 @@ import static java.util.stream.Collectors.toList;
 
 import com.spotify.styx.StyxScheduler;
 import com.typesafe.config.ConfigFactory;
+import io.fabric8.kubernetes.api.model.Namespace;
+import java.time.Instant;
 import org.junit.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -38,22 +40,26 @@ public class KubernetesCleanupTest {
 
   private static final Logger log = LoggerFactory.getLogger(KubernetesCleanupTest.class);
 
+  private static final Instant NOW = Instant.now();
+
   @Test
   public void deleteOldKubernetesTestNamespaces() {
     System.setProperty("styx.test.namespace", "dummy");
     var schedulerConfig = ConfigFactory.load(SCHEDULER_SERVICE_NAME);
     var k8s = StyxScheduler.getKubernetesClient(schedulerConfig, "default");
 
-    var oldNamespaces = k8s.namespaces().list().getItems().stream()
-        .filter(ns -> isExpiredTestNamespace(ns.getMetadata().getName()))
+    var expiredNamespaces = k8s.namespaces().list().getItems().stream()
+        .filter(ns -> isExpiredTestNamespace(ns.getMetadata().getName(), NOW))
         .collect(toList());
 
-    var names = oldNamespaces.stream()
-        .map(ns -> ns.getMetadata().getName())
-        .collect(toList());
-
-    log.info("Deleting old k8s test namespaces: {}", names);
-    k8s.namespaces().delete(oldNamespaces);
+    for (final Namespace namespace : expiredNamespaces) {
+      var name = namespace.getMetadata().getName();
+      log.info("Deleting expired k8s test namespace: {}", name);
+      try {
+        k8s.namespaces().delete(namespace);
+      } catch (Exception e) {
+        log.error("Failed to delete expired test namespace: {}", name, e);
+      }
+    }
   }
-
 }

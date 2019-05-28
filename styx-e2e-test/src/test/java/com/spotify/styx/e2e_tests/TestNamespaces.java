@@ -24,6 +24,7 @@ import static com.spotify.styx.e2e_tests.EndToEndTestBase.TIMESTAMP_FORMATTER;
 
 import java.time.Duration;
 import java.time.Instant;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.regex.Pattern;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -32,7 +33,7 @@ class TestNamespaces {
 
   private static final Logger log = LoggerFactory.getLogger(TestNamespaces.class);
 
-  private static final Duration TEST_NAMESPACE_TTL = Duration.ofDays(1);
+  static final Duration TEST_NAMESPACE_TTL = Duration.ofDays(1);
 
   static final String TEST_NAMESPACE_PREFIX = "styx-e2e-test";
 
@@ -44,9 +45,19 @@ class TestNamespaces {
   }
 
   /**
+   * Generate a unique test namespace.
+   */
+  static String createTestNamespace(Instant now) {
+    return String.join("-",
+        TEST_NAMESPACE_PREFIX,
+        TIMESTAMP_FORMATTER.format(now),
+        Long.toHexString(ThreadLocalRandom.current().nextLong()));
+  }
+
+  /**
    * Check whether a namespace is expired and can be safely deleted.
    */
-  static boolean isExpiredTestNamespace(String namespace) {
+  static boolean isExpiredTestNamespace(String namespace, Instant now) {
     var matcher = TEST_NAMESPACE_PATTERN.matcher(namespace);
     if (!matcher.matches()) {
       return false;
@@ -61,7 +72,7 @@ class TestNamespaces {
     }
     // Consider test namespaces to be expired after a reasonable TTL in order to not
     // interfere with concurrently executing tests.
-    if (timestamp.isAfter(Instant.now().minus(TEST_NAMESPACE_TTL))) {
+    if (timestamp.isAfter(now.minus(TEST_NAMESPACE_TTL))) {
       return false;
     }
     return true;

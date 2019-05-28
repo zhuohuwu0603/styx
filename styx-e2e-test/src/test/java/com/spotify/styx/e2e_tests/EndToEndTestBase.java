@@ -21,7 +21,6 @@
 package com.spotify.styx.e2e_tests;
 
 import static com.spotify.styx.e2e_tests.DatastoreUtil.deleteDatastoreNamespace;
-import static com.spotify.styx.e2e_tests.TestNamespaces.TEST_NAMESPACE_PREFIX;
 import static java.lang.ProcessBuilder.Redirect.INHERIT;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.awaitility.Awaitility.await;
@@ -57,7 +56,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
-import java.util.concurrent.ThreadLocalRandom;
 import javaslang.control.Try;
 import org.junit.After;
 import org.junit.Before;
@@ -81,10 +79,7 @@ public class EndToEndTestBase {
       .ofPattern("yyyyMMdd-HHmmss", Locale.ROOT)
       .withZone(ZoneOffset.UTC);
 
-  final String namespace = String.join("-",
-      TEST_NAMESPACE_PREFIX,
-      TIMESTAMP_FORMATTER.format(Instant.now()),
-      Long.toHexString(ThreadLocalRandom.current().nextLong()));
+  final String namespace = TestNamespaces.createTestNamespace(Instant.now());
 
   final String component1 = namespace + "-c-1";
   final String workflowId1 = namespace + "-wf-1";

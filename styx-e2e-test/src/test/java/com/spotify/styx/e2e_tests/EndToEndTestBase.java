@@ -118,17 +118,17 @@ public class EndToEndTestBase {
       } catch (JoranException e) {
         throw new RuntimeException(e);
       }
-      log.info("Test starting: {} (namespace={})", description.getDisplayName(), namespace);
+      log.info("Test starting: {} (namespace={})", description, namespace);
     }
 
     @Override
     protected void succeeded(Description description) {
-      log.info("Test succeeded: {} (namespace={})", description.getDisplayName(), namespace);
+      log.info("Test succeeded: {} (namespace={})", description, namespace);
     }
 
     @Override
     protected void failed(Throwable e, Description description) {
-      log.info("Test failed: {} (namespace={})", description.getDisplayName(), namespace, e);
+      log.info("Test failed: {} (namespace={})", description, namespace, e);
     }
   };
 

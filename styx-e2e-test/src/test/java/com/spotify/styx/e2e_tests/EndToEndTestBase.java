@@ -25,6 +25,9 @@ import static java.lang.ProcessBuilder.Redirect.INHERIT;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.awaitility.Awaitility.await;
 
+import ch.qos.logback.classic.LoggerContext;
+import ch.qos.logback.classic.joran.JoranConfigurator;
+import ch.qos.logback.core.joran.spi.JoranException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JavaType;
 import com.google.cloud.datastore.Datastore;
@@ -61,6 +64,8 @@ import org.junit.After;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.rules.TemporaryFolder;
+import org.junit.rules.TestWatcher;
+import org.junit.runner.Description;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -96,6 +101,26 @@ public class EndToEndTestBase {
   private NamespacedKubernetesClient k8s;
 
   private Config schedulerConfig;
+
+  /**
+   * Sets up per-test log files.
+   */
+  @Rule public final TestWatcher testLogFileSetup = new TestWatcher() {
+    @Override
+    protected void starting(Description description) {
+      System.setProperty("testName", description.getClassName() + "." + description.getMethodName() + "." + namespace);
+      var lc = (LoggerContext) LoggerFactory.getILoggerFactory();
+      lc.reset();
+      JoranConfigurator configurator = new JoranConfigurator();
+      configurator.setContext(lc);
+      try {
+        configurator.doConfigure(this.getClass().getResourceAsStream("/logback.xml"));
+      } catch (JoranException e) {
+        throw new RuntimeException(e);
+      }
+      log.info("Running test: {} (namespace={})", description.getDisplayName(), namespace);
+    }
+  };
 
   @Before
   public void setUp() throws Exception {

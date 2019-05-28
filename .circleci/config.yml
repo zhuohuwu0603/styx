@@ -41,6 +41,9 @@ jobs:
       - store_artifacts:
           path: styx-report/target/site/jacoco-aggregate/
           destination: jacoco-aggregate
+      - store_artifacts:
+          path: styx-e2e-test/target/test-logs/
+          destination: e2e-test-logs
       # Run static analysis after tests
       - run:
           name: Static Analysis

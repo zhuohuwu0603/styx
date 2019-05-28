@@ -35,7 +35,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * This removes old datastore test namespaces. It is not really a test.
+ * This removes old datastore test namespaces that might be left behind by e2e tests
+ * due to interrupted execution or failing teardown etc. It is not really a test.
  */
 public class DatastoreCleanupTest {
 

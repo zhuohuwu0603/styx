@@ -22,8 +22,8 @@ package com.spotify.styx.e2e_tests;
 
 import static com.spotify.styx.e2e_tests.EndToEndTestBase.TIMESTAMP_FORMATTER;
 
+import java.time.Duration;
 import java.time.Instant;
-import java.time.temporal.ChronoUnit;
 import java.util.regex.Pattern;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -31,6 +31,8 @@ import org.slf4j.LoggerFactory;
 class TestNamespaces {
 
   private static final Logger log = LoggerFactory.getLogger(TestNamespaces.class);
+
+  private static final Duration TEST_NAMESPACE_TTL = Duration.ofDays(1);
 
   static final String TEST_NAMESPACE_PREFIX = "styx-e2e-test";
 
@@ -41,7 +43,10 @@ class TestNamespaces {
     throw new UnsupportedOperationException();
   }
 
-  static boolean isOldTestNamespace(String namespace) {
+  /**
+   * Check whether a namespace is expired and can be safely deleted.
+   */
+  static boolean isExpiredTestNamespace(String namespace) {
     var matcher = TEST_NAMESPACE_PATTERN.matcher(namespace);
     if (!matcher.matches()) {
       return false;
@@ -54,7 +59,9 @@ class TestNamespaces {
       log.warn("Failed to parse namespace timestamp: " + timestampString, e);
       return false;
     }
-    if (timestamp.isAfter(Instant.now().minus(1, ChronoUnit.DAYS))) {
+    // Consider test namespaces to be expired after a reasonable TTL in order to not
+    // interfere with concurrently executing tests.
+    if (timestamp.isAfter(Instant.now().minus(TEST_NAMESPACE_TTL))) {
       return false;
     }
     return true;

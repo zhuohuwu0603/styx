@@ -21,7 +21,7 @@
 package com.spotify.styx.e2e_tests;
 
 import static com.spotify.styx.e2e_tests.EndToEndTestBase.SCHEDULER_SERVICE_NAME;
-import static com.spotify.styx.e2e_tests.TestNamespaces.isOldTestNamespace;
+import static com.spotify.styx.e2e_tests.TestNamespaces.isExpiredTestNamespace;
 import static java.util.stream.Collectors.toList;
 
 import com.spotify.styx.StyxScheduler;
@@ -31,7 +31,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * This removes old kubernetes test namespaces. It is not really a test.
+ * This removes old kubernetes test namespaces that might be left behind by e2e tests
+ * due to interrupted execution or failing teardown etc. It is not really a test.
  */
 public class KubernetesCleanupTest {
 
@@ -44,7 +45,7 @@ public class KubernetesCleanupTest {
     var k8s = StyxScheduler.getKubernetesClient(schedulerConfig, "default");
 
     var oldNamespaces = k8s.namespaces().list().getItems().stream()
-        .filter(ns -> isOldTestNamespace(ns.getMetadata().getName()))
+        .filter(ns -> isExpiredTestNamespace(ns.getMetadata().getName()))
         .collect(toList());
 
     var names = oldNamespaces.stream()

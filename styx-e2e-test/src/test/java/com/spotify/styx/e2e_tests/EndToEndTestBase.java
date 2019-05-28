@@ -125,7 +125,7 @@ public class EndToEndTestBase {
   @Before
   public void setUp() throws Exception {
     // Setup namespace
-    log.info("Styx test namespace: {}", namespace);
+    log.info("Setting up styx e2e test: {}", namespace);
     System.setProperty("styx.test.namespace", namespace);
 
     schedulerConfig = ConfigFactory.load(SCHEDULER_SERVICE_NAME);
@@ -172,6 +172,8 @@ public class EndToEndTestBase {
 
   @After
   public void tearDown() throws Exception {
+    log.info("Tearing down styx e2e test: {}", namespace);
+
     try {
       styxApiInstance.thenAccept(instance -> instance.getSignaller().signalShutdown());
       styxSchedulerInstance.thenAccept(instance -> instance.getSignaller().signalShutdown());

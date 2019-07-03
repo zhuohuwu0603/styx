@@ -56,7 +56,7 @@ import org.fusesource.jansi.Ansi;
 class PrettyCliOutput implements CliOutput {
 
   private static final String BACKFILL_FORMAT =
-      "%28s  %6s  %13s %12s  %-20s  %-20s  %-7s  %-20s  %-<cid-length>s  %-<wid-length>s %-20s %-20s "
+      "%28s  %6s  %13s %12s  %-20s  %-20s  %-7s  %-20s  %-<cid-length>s  %-<wid-length>s %-28s %-28s "
       + "%-<description-length>s %s";
 
   private static final String WORKFLOW_FORMAT =
